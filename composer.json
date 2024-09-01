@@ -1,0 +1,30 @@
+{
+    "name": "araodomingos/crudify",
+    "description": "A Laravel package to generate CRUD operations with a single command",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Arão Domingos João",
+            "email": "araodomingos04@gmail.com"
+        }
+    ],
+    "require": {
+        "php": "^7.3|^8.0",
+        "illuminate/support": "^8.0|^9.0|^10.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Araodomingos\\Crudfiy\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Araodomingos\\Crudfiy\\Providers\\CrudfiyServiceProvider"
+            ]
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}
