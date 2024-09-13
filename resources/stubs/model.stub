@@ -4,9 +4,11 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+{{softDeletesTrait}}
 
 class {{modelName}} extends Model
 {
+    {{softDeletesUse}}
     use HasFactory;
 
     protected $table = '{{tableName}}';

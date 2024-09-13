@@ -17,6 +17,10 @@ class CrudifyServiceProvider extends ServiceProvider
             $this->publishes([
                 __DIR__.'/../../config/crudify.php' => config_path('crudify.php'),
             ], 'crudify-config');
+
+            $this->publishes([
+                __DIR__.'/../../resources/stubs' => resource_path('crudify/stubs'),
+            ], 'crudify-stubs');
         }
     }
 

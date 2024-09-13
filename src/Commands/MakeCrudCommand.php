@@ -12,8 +12,7 @@ class MakeCrudCommand extends Command
                             {name}
                             {--fields=}
                             {--relations=}
-                            {--creation-rules=}
-                            {--update-rules=}';
+                            {--soft-deletes}';
                             
     protected $description = 'Create CRUD operations for a model, including migrations, controllers, and views.';
 
@@ -22,9 +21,10 @@ class MakeCrudCommand extends Command
         $name = $this->argument('name');
         $fields = $this->option('fields');
         $relations = $this->option('relations');
+        $softDeletes = $this->option('soft-deletes');
 
-        $this->createModel($name, $fields, $relations);
-        $this->createMigration($name, $fields, $relations);
+        $this->createModel($name, $fields, $relations, $softDeletes);
+        $this->createMigration($name, $fields, $relations, $softDeletes);
         $this->createController($name);
         $this->createRequests($name, $fields);
         $this->createViews($name);
@@ -44,7 +44,7 @@ class MakeCrudCommand extends Command
         $fillableFields = $this->getFillableFields($fields);
         $relationMethods = $this->getRelationMethods($relations);
 
-        $modelTemplate = file_get_contents(resource_path('stubs/model.stub'));
+        $modelTemplate = file_get_contents(resource_path('crudify/stubs/model.stub'));
         $modelTemplate = str_replace(
             ['{{modelName}}', '{{tableName}}', '{{fillable}}', '{{relations}}', '{{softDeletesTrait}}', '{{softDeletesUse}}'],
             [$name, $tableName, $fillableFields, $relationMethods, $softDeletesTrait, $softDeletesUse],
@@ -141,7 +141,7 @@ class MakeCrudCommand extends Command
         $migrationPath = base_path('database/migrations/');
         $migrationFile = $this->getLatestMigrationFile($migrationPath, "create_".Str::plural(Str::snake($name))."_table");
 
-        $migrationTemplate = file_get_contents(resource_path('stubs/migration.stub'));
+        $migrationTemplate = file_get_contents(resource_path('crudify/stubs/migration.stub'));
         $migrationTemplate = str_replace(
             ['{{tableName}}', '{{fields}}'],
             [Str::plural(Str::snake($name)), $this->getMigrationFields($fields, $softDeletes)],
@@ -164,7 +164,7 @@ class MakeCrudCommand extends Command
         }
 
         if ($useSoftDeletes) {
-            $migrationFields .= "\n            \$table->softDeletes();";
+            $migrationFields[]= "\n            \$table->softDeletes();";
         }
     
         return implode("\n\t\t\t", $migrationFields);
@@ -186,7 +186,7 @@ class MakeCrudCommand extends Command
                 $migrationPath = base_path('database/migrations/');
                 $migrationFile = $this->getLatestMigrationFile($migrationPath, "create_{$pivotTableName}_table");
 
-                $pivotMigrationTemplate = file_get_contents(resource_path('stubs/pivot_migration.stub'));
+                $pivotMigrationTemplate = file_get_contents(resource_path('crudify/stubs/pivot_migration.stub'));
                 $pivotMigrationTemplate = str_replace(
                     ['{{pivotTableName}}', '{{foreignKey}}', '{{relatedKey}}'],
                     [$pivotTableName, $foreignKey, $localKey],
@@ -223,14 +223,33 @@ class MakeCrudCommand extends Command
         $storeRequestName = $name . 'StoreRequest';
         $updateRequestName = $name . 'UpdateRequest';
 
+        $useSoftDeletes = $this->option('soft-deletes');
+        $softDeletesMethods = $useSoftDeletes ? $this->getSoftDeletesMethods($name) : '';
+
         Artisan::call('make:controller', ['name' => $controllerName]);
 
         $controllerPath = app_path("Http/Controllers/{$controllerName}.php");
-        $controllerTemplate = file_get_contents(resource_path('stubs/controller.stub'));
+        $controllerTemplate = file_get_contents(resource_path('crudify/stubs/controller.stub'));
 
         $controllerTemplate = str_replace(
-            ['{{controllerName}}', '{{modelName}}', '{{modelVariable}}', '{{storeRequestName}}', '{{updateRequestName}}'],
-            [$controllerName, $name, strtolower($name), $storeRequestName, $updateRequestName],
+            [
+                '{{controllerName}}', 
+                '{{modelName}}', 
+                '{{modelVariable}}', 
+                '{{softDeletesQuery}}',
+                '{{softDeletesMethods}}',
+                '{{storeRequestName}}', 
+                '{{updateRequestName}}'
+            ],
+            [
+                $controllerName,
+                $name,
+                strtolower($name),
+                $useSoftDeletes ? '::withTrashed()' : '',
+                $softDeletesMethods,
+                $storeRequestName,
+                $updateRequestName
+            ],
             $controllerTemplate
         );
 
@@ -269,7 +288,7 @@ class MakeCrudCommand extends Command
     protected function createRequest($stubName, $rules, $modelName)
     {
         $requestPath = app_path("Http/Requests/{$modelName}{$stubName}.php");
-        $stubPath = resource_path("stubs/{$stubName}.stub");
+        $stubPath = resource_path("crudify/stubs/{$stubName}.stub");
 
         if (!file_exists($stubPath)) {
             $this->error("Stub file not found: {$stubPath}");
@@ -289,6 +308,24 @@ class MakeCrudCommand extends Command
         );
 
         file_put_contents($requestPath, $requestTemplate);
+    }
+
+    protected function getSoftDeletesMethods($modelName)
+    {
+        return "
+            public function restore(\$id)
+            {
+                \$" . strtolower($modelName) . " = {$modelName}::withTrashed()->findOrFail(\$id);
+                \$" . strtolower($modelName) . "->restore();
+                return redirect()->route('" . strtolower($modelName) . ".index')->with('success', '{$modelName} restored successfully.');
+            }
+
+            public function forceDelete(\$id)
+            {
+                \$" . strtolower($modelName) . " = {$modelName}::withTrashed()->findOrFail(\$id);
+                \$" . strtolower($modelName) . "->forceDelete();
+                return redirect()->route('" . strtolower($modelName) . ".index')->with('success', '{$modelName} permanently deleted.');
+            }";
     }
 
     protected function createViews($name)

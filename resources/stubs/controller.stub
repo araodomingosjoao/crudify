@@ -11,7 +11,7 @@ class {{controllerName}} extends Controller
 {
     public function index()
     {
-        ${{modelVariable}}s = ${{softDeletes}} ? {{modelName}}::withTrashed()->get() : {{modelName}}::all();
+        ${{modelVariable}}s = {{modelName}}{{softDeletesQuery}}->get();
         return view('{{modelVariable}}.index', compact('{{modelVariable}}s'));
     }
 
@@ -47,4 +47,6 @@ class {{controllerName}} extends Controller
         ${{modelVariable}}->delete();
         return redirect()->route('{{modelVariable}}.index');
     }
+
+    {{softDeletesMethods}}
 }
